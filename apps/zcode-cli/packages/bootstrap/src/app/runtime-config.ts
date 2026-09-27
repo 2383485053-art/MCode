@@ -173,6 +173,9 @@ export function resolveAppRuntimeConfig(input: {
       },
       profiles: [...(options.runtimeConfig?.subagents?.profiles ?? []), ...subagentProfiles],
     },
+    // Agent Teams v1 与 subagents 同门：options 显式覆盖优先，其次用户配置 features.agentTeams。
+    agentTeamsEnabled:
+      options.runtimeConfig?.agentTeamsEnabled ?? configResult.config.features.agentTeams,
     memory: {
       cliStorageRoot,
       enabled: options.runtimeConfig?.memory?.enabled ?? configResult.config.features.memory,

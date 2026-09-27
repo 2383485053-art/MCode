@@ -12,6 +12,9 @@ export const HookEventName = {
   PostToolUse: "PostToolUse",
   PostToolUseFailure: "PostToolUseFailure",
   Stop: "Stop",
+  TaskCreated: "TaskCreated",
+  TaskCompleted: "TaskCompleted",
+  TeammateIdle: "TeammateIdle",
 } as const;
 
 export type HookEventName = (typeof HookEventName)[keyof typeof HookEventName];
@@ -138,6 +141,31 @@ export interface StopHookInput extends BaseHookInput {
   toolCallCount: number;
 }
 
+/** Agent Teams：任务创建成功后触发；blocking error 会回滚删除该任务。 */
+export interface TaskCreatedHookInput extends BaseHookInput {
+  hookEventName: typeof HookEventName.TaskCreated;
+  taskDescription?: string;
+  taskId: string;
+  taskSubject: string;
+  teammateName?: string;
+}
+
+/** Agent Teams：任务状态改为 completed 之前触发；blocking 会拒绝状态变更。 */
+export interface TaskCompletedHookInput extends BaseHookInput {
+  hookEventName: typeof HookEventName.TaskCompleted;
+  taskDescription?: string;
+  taskId: string;
+  taskSubject: string;
+  teammateName?: string;
+}
+
+/** Agent Teams：teammate turn 结束进入 idle 时触发。 */
+export interface TeammateIdleHookInput extends BaseHookInput {
+  hookEventName: typeof HookEventName.TeammateIdle;
+  teammateName: string;
+  idleReason?: "available" | "interrupted" | "failed";
+}
+
 export type HookInput =
   | PreToolUseHookInput
   | PermissionRequestHookInput
@@ -145,7 +173,10 @@ export type HookInput =
   | PostToolUseFailureHookInput
   | UserPromptSubmitHookInput
   | SessionStartHookInput
-  | StopHookInput;
+  | StopHookInput
+  | TaskCreatedHookInput
+  | TaskCompletedHookInput
+  | TeammateIdleHookInput;
 
 export type PermissionRequestHookDecision =
   | {
@@ -191,6 +222,20 @@ export type HookSpecificOutput =
   | {
       additionalContext?: string;
       hookEventName: typeof HookEventName.Stop;
+    }
+  | {
+      additionalContext?: string;
+      decision?: "approve" | "block";
+      hookEventName: typeof HookEventName.TaskCreated;
+    }
+  | {
+      additionalContext?: string;
+      decision?: "approve" | "block";
+      hookEventName: typeof HookEventName.TaskCompleted;
+    }
+  | {
+      additionalContext?: string;
+      hookEventName: typeof HookEventName.TeammateIdle;
     };
 
 export interface HookJSONOutput {
@@ -276,6 +321,20 @@ export const HookSpecificOutputSchema = z.discriminatedUnion("hookEventName", [
   z.object({
     additionalContext: z.string().optional(),
     hookEventName: z.literal(HookEventName.Stop),
+  }),
+  z.object({
+    additionalContext: z.string().optional(),
+    decision: z.enum(["approve", "block"]).optional(),
+    hookEventName: z.literal(HookEventName.TaskCreated),
+  }),
+  z.object({
+    additionalContext: z.string().optional(),
+    decision: z.enum(["approve", "block"]).optional(),
+    hookEventName: z.literal(HookEventName.TaskCompleted),
+  }),
+  z.object({
+    additionalContext: z.string().optional(),
+    hookEventName: z.literal(HookEventName.TeammateIdle),
   }),
 ]);
 

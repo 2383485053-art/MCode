@@ -74,6 +74,8 @@ export interface ExploreSubagentRuntimeRequest {
   disallowedTools?: readonly string[];
   sessionId: SessionId;
   description: string;
+  /** Agent Teams：teammate 最终登记名（透传给 child runtime 做 member 侧装配）。 */
+  agentName?: string;
   maxTurns?: number;
   /** child session 已持久化且可被 projection/query 读取后、首次模型执行前调用。 */
   onSessionReady?: () => Promise<void>;
@@ -1143,6 +1145,7 @@ async function runAgentToCompletion(
       disallowedTools: lifecycle.profile.disallowedTools,
       sessionId: lifecycle.childSessionId,
       description: request.description,
+      ...(request.agentName !== undefined ? { agentName: request.agentName } : {}),
       maxTurns: lifecycle.profile.maxTurns,
       onSessionReady: notifySessionReady,
       permissionMode: lifecycle.profile.permissionMode,

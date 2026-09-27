@@ -10,6 +10,7 @@ import {
   type TraceContext,
 } from "@zcode/contracts";
 import type { ToolEntry, ToolHandler } from "../types.js";
+import { TEAM_SEND_MESSAGE_PROVIDER_DESCRIPTION } from "../../agent/teams/prompts.js";
 import { assertNotOffPeakTurn } from "./off-peak.js";
 
 const MAX_SEND_MESSAGE_MODEL_BYTES = 4096;
@@ -22,6 +23,10 @@ const MAX_SEND_MESSAGE_MODEL_BYTES = 4096;
 const OFF_PEAK_SEND_MESSAGE_HINT =
   "Spawn a new foreground Agent with the full context instead of resuming a completed one.";
 
+// 修复：描述曾在这里被无条件替换为 team 版，但端口只有在 Agent Teams 开启时
+// 才被装饰成按名寻址；默认（teams 关闭）时模型照 team 版描述发 to:"team-lead"/
+// 具名必然失败，且原版「按 agentId 续跑已完成 agent」的用法从描述里消失。
+// 描述必须与端口行为同门：默认原版，teams 开启时由注册分支切换为 team 版。
 const SEND_MESSAGE_PROVIDER_DESCRIPTION = [
   "# SendMessage",
   "",
@@ -138,6 +143,23 @@ export const sendMessageToolEntry: ToolEntry = {
     recordOutput: "summary",
   },
 };
+
+/**
+ * 按会话形态挑描述：teamAddressing 为真（teamManager 在场）时切换为
+ * Claude Code 范式的 team 版（按名寻址 / to:"team-lead"）。
+ */
+export function createSendMessageToolEntry(options?: { teamAddressing?: boolean }): ToolEntry {
+  return {
+    ...sendMessageToolEntry,
+    metadata: {
+      ...sendMessageToolEntry.metadata,
+      description:
+        options?.teamAddressing === true
+          ? TEAM_SEND_MESSAGE_PROVIDER_DESCRIPTION
+          : SEND_MESSAGE_PROVIDER_DESCRIPTION,
+    },
+  };
+}
 
 function formatSendMessageModelContent(output: unknown): string {
   const result = SendMessageOutputSchema.parse(output);

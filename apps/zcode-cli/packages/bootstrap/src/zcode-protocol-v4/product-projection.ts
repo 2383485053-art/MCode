@@ -161,6 +161,28 @@ type HookInvocationRowContent = Omit<
   | "visibility"
 >;
 
+/** 协议 v4 hookInvocation 行承认的事件名（与 rows.ts 的 z.enum 一致）。 */
+type ProtocolHookEventName =
+  | "SessionStart"
+  | "UserPromptSubmit"
+  | "PreToolUse"
+  | "PermissionRequest"
+  | "PostToolUse"
+  | "PostToolUseFailure"
+  | "Stop";
+const PROTOCOL_HOOK_EVENT_NAMES = new Set<ProtocolHookEventName>([
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PermissionRequest",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "Stop",
+]);
+function isProtocolHookEventName(name: string): name is ProtocolHookEventName {
+  return (PROTOCOL_HOOK_EVENT_NAMES as Set<string>).has(name);
+}
+
 interface PendingSessionHookInvocation {
   firstEvent: SessionEvent;
   content: HookInvocationRowContent;
@@ -1494,6 +1516,13 @@ export class ProductProjection {
 
   private onHookRunLifecycle(event: SessionEvent): ConversationDelta[] {
     const payload = event.payload as HookRunLifecyclePayload;
+    // 协议 v4 的 hookInvocation 行只投影七个通用事件；Agent Teams 的
+    // TaskCreated/TaskCompleted/TeammateIdle 是 CLI 侧编排事件（无桌面 UI 概念），
+    // 白名单外不进时间线，协议枚举保持不变。
+    const hookEventName = payload.hookEventName;
+    if (!isProtocolHookEventName(hookEventName)) {
+      return [];
+    }
     const hookInvocationId = payload.hookInvocationId;
     const hookCount = payload.hookCount;
     if (
@@ -1581,7 +1610,7 @@ export class ProductProjection {
     const content: HookInvocationRowContent = {
       kind: "hookInvocation",
       hookInvocationId,
-      hookEventName: payload.hookEventName,
+      hookEventName,
       hookCount: hookCount as number,
       state: rowState,
       startedAt: invocationStartedAt,
@@ -1591,7 +1620,7 @@ export class ProductProjection {
             durationMs: Math.max(0, invocationEndedAt - invocationStartedAt),
           }
         : {}),
-      lane: this.hookInvocationLane(payload.hookEventName),
+      lane: this.hookInvocationLane(hookEventName),
       ...(payload.toolCallId ? { anchorToolCallId: String(payload.toolCallId) } : {}),
       executions,
     };

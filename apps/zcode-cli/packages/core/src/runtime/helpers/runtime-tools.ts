@@ -52,6 +52,9 @@ function registerRuntimeBuiltInTools(runtime: AgentRuntimeInternal, deps: AgentR
     includeSkill: Boolean(runtime.skillPort),
     includeAgent: Boolean(runtime.subagentPort),
     includeSendMessage: runtime.subagentPort?.sendMessage !== undefined,
+    includeTaskBoard: Boolean(runtime.teamManager),
+    // SendMessage 描述与端口行为同门：teamManager 在场才切换 team 按名寻址版。
+    agentTeamsEnabled: Boolean(runtime.teamManager),
     includeRespondToCoordinator:
       runtime.config.taskType === "subagent_child" && Boolean(deps.coordinatorResponsePort),
     // submit_result 只在注入了 workflowSubmitPort 的 workflow actor 会话注册。以端口存在为门，
@@ -184,6 +187,7 @@ function createRuntimeToolExecutor(
     nativeSearchEnhancementsEnabled: runtime.config.nativeSearchEnhancementsEnabled,
     skillPort: deps.skillPort,
     subagentPort: runtime.subagentPort,
+    teamManager: runtime.teamManager,
     coordinatorResponsePort: deps.coordinatorResponsePort,
     workflowSubmitPort: deps.workflowSubmitPort,
     workflowEscalatePort: deps.workflowEscalatePort,

@@ -1,6 +1,12 @@
 /* eslint-disable max-lines -- subagent runtime wiring 集中衔接 child runtime、tool pool、权限、MCP 与 activity watchdog，拆分需单独迁移。 */
 import { RESPOND_TO_COORDINATOR_TOOL_NAME } from "@zcode/contracts";
-import type { SubagentRunOptions } from "@zcode/contracts";
+import type {
+  SubagentLaunchOptions,
+  SubagentLaunchRequest,
+  SubagentRunOptions,
+  SubagentSendMessageRequest,
+  SubagentSendMessageResult,
+} from "@zcode/contracts";
 import {
   defaultScheduler,
   PermissionService,
@@ -48,6 +54,9 @@ import { deriveChildClientPorts } from "../helpers/child-client-ports.js";
 import { createCoordinatorResponsePort } from "../../subagent/coordinator-response.js";
 import { isStaleBranchRuntimeTaskEvent } from "./runtime-command-generation.js";
 import { loadPersistentAgentMemory } from "../../subagent/persistent-memory.js";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { TeamManager, createTeamSubagentPort } from "../../agent/teams/team-manager.js";
 import {
   createOfficialCuaPolicy,
   SUBAGENT_COMPUTER_USE_UNAVAILABLE_CODE,
@@ -64,7 +73,7 @@ export function createDefaultSubagentPort(
     return undefined;
   }
 
-  return createExploreSubagentPort({
+  const basePort = createExploreSubagentPort({
     logger: this.logger,
     inactivityTimeoutMs: this.config.subagents?.inactivityTimeoutMs,
     autoBackgroundMs: this.config.subagents?.autoBackgroundMs,
@@ -269,6 +278,8 @@ export function createDefaultSubagentPort(
           maxTurns: request.maxTurns ?? this.config.subagents?.maxTurns ?? 4,
           parentSessionId: this.sessionId,
           taskType: "subagent_child",
+          // Agent Teams：teammate 的最终登记名透传给 child（member 侧装配 mailbox 路由用）。
+          ...(request.agentName !== undefined ? { teamAgentName: request.agentName } : {}),
           // 动态工作流灰度门必须结构性继承：
           // 父会话关着而子代理开着，等于 Agent 工具变成绕过灰度的后门。默认路径（child 继承
           // 父 registry 可见的工具名）本来就够，但**自定义 agent profile 显式写
@@ -419,8 +430,82 @@ export function createDefaultSubagentPort(
       }
     },
   });
+  // Agent Teams v1：仅 lead 会话（非 subagent_child）且开关开启时装饰端口；
+  // 未开启时行为与现状完全一致（零开销：poller 延迟到首个成员注册）。
+  if (this.config.agentTeamsEnabled !== true) {
+    return basePort;
+  }
+  if (this.config.taskType === "subagent_child") {
+    // member 角色：teammate 子运行时只挂任务板工具与 mailbox 消息路由
+    //（兄弟成员不在本进程 registry，互发消息走文件，与 CC 一致）。
+    const parentSessionId = this.config.parentSessionId;
+    const memberAgentId = this.sessionId.startsWith("subagent_")
+      ? this.sessionId.slice("subagent_".length)
+      : undefined;
+    if (!parentSessionId || !memberAgentId) return basePort;
+    const memberManager = new TeamManager({
+      role: "member",
+      ...(this.config.teamAgentName !== undefined
+        ? { memberAgentName: this.config.teamAgentName }
+        : {}),
+      memberAgentId,
+      leadSessionId: parentSessionId,
+      storageDir: join(homedir(), ".zcode"),
+      registry: this.runtimeTaskRegistry,
+      subagentPort: basePort,
+      injectIntoLead: () => undefined,
+      cwd: this.workingDirectory,
+      mode: this.config.mode ?? "build",
+      getTraceId: () => this.rootTraceContext.traceId,
+      getHookRunner: () => this.hookRunner,
+      logger: this.logger,
+    });
+    this.teamManager = memberManager;
+    // CC 范式（0150/1085）：teammate 之间用 SendMessage 通信。member 的
+    // basePort（subagent_child 原版端口）没有 sendMessage——原版只配给可
+    // spawn 的会话——导致接收侧（watch drain mailbox）虽已实现、发送侧工具
+    // 却从未注册，teammate 只能借 RespondToCoordinator 单向汇报 lead。
+    // 这里手写 member 端口而非复用 createTeamSubagentPort：后者的 sendMessage
+    // 装饰以 port.sendMessage 已存在为前提，inner 回退依赖它；member 的
+    // handleSend 全部走 mailbox 文件，agentId 直达（孙代理 resume）本就
+    // 不可达，inner 返回明确失败即可。
+    const memberPort: SubagentPort = {
+      ...basePort,
+      launch: (request: SubagentLaunchRequest, options?: SubagentLaunchOptions) =>
+        memberManager.handleLaunch(request, options, (innerRequest, innerOptions) =>
+          basePort.launch(innerRequest, innerOptions),
+        ),
+      sendMessage: (request: SubagentSendMessageRequest) =>
+        memberManager.handleSend(request, async (
+          innerRequest: SubagentSendMessageRequest,
+        ): Promise<SubagentSendMessageResult> => {
+          const hint = `Unknown teammate '${innerRequest.to}': teammates message teammates by name or 'team-lead'.`;
+          return { status: "failed", messageId: `teammsg_${crypto.randomUUID()}`, error: hint, message: hint };
+        }),
+    };
+    return memberPort;
+  }
+  const teamManager = new TeamManager({
+    role: "lead",
+    leadSessionId: this.sessionId,
+    storageDir: join(homedir(), ".zcode"),
+    registry: this.runtimeTaskRegistry,
+    subagentPort: basePort,
+    injectIntoLead: (text, traceContext) => {
+      this.enqueueBackgroundTaskNotification({
+        text,
+        traceContext: traceContext ?? this.rootTraceContext,
+      });
+    },
+    cwd: this.workingDirectory,
+    mode: this.config.mode ?? "build",
+    getTraceId: () => this.rootTraceContext.traceId,
+    getHookRunner: () => this.hookRunner,
+    logger: this.logger,
+  });
+  this.teamManager = teamManager;
+  return createTeamSubagentPort(basePort, teamManager);
 }
-
 function resolveSubagentEmbeddedSearchEnabled(): boolean {
   const embeddedSearchDecision = resolveEmbeddedSearchBranchCapability({
     bashAvailable: true,

@@ -173,6 +173,8 @@ export class AgentRuntime {
   private mcpInitialized = false;
   private mcpToolsRegistered = false;
   private subagentPort?: SubagentPort;
+  /** Agent Teams v1：lead 会话的编排者；createDefaultSubagentPort 装配（见 AgentRuntimeInternal）。 */
+  teamManager?: import("../agent/teams/team-manager.js").TeamManager;
   private dynamicWorkflowRunPort?: DynamicWorkflowRunPort;
   private modelCatalogPort?: ModelCatalogPort;
   private runtimeTaskRegistry: RuntimeTaskRegistry;
@@ -331,6 +333,14 @@ export class AgentRuntime {
     // 关闭单个 session 后进程仍存活，
     // 因此必须先终止该 runtime 的 Extraction，不能只在超时后放弃等待。
     this.memoryExtractionScheduler?.shutdown();
+    // Agent Teams v1（CC 范式）：lead 会话结束即 team 消失——停成员、
+    // 回收名下任务、删除 team 与任务板目录（尽力而为，不阻塞关闭链路）。
+    this.teamManager?.dispose();
+  }
+
+  /** Agent Teams v1：是否有自驱中的 teammate（headless settle 触发用）。 */
+  hasActiveTeammates(): boolean {
+    return this.teamManager?.hasActiveTeammates() ?? false;
   }
 }
 
@@ -394,6 +404,8 @@ export interface AgentRuntime {
   hasActiveOrQueuedTurnWork(): boolean;
   /** Session 常驻池使用的后台 Bash/Agent/Workflow running 权威事实。 */
   hasRunningBackgroundTasks(): boolean;
+  /** Agent Teams v1：自驱中的 teammate（与 hasRunningBackgroundTasks 取并集）。 */
+  hasActiveTeammates(): boolean;
   /**
    * Session 常驻池唯一消费的 runtime owned-work 聚合事实。
    * 包含前台/队列、registry background task、detached sidecar 和 memory work。

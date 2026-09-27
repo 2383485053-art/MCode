@@ -36,6 +36,7 @@ export const ConfigKey = {
   FeatureMemory: "features.memory",
   FeatureSkill: "features.skill",
   FeatureMcp: "features.mcp",
+  FeatureAgentTeams: "features.agentTeams",
 
   // Memory
   MemoryUse: "memory.use",
@@ -109,6 +110,7 @@ export type ConfigValue<K extends ConfigKey> = K extends "modelStream.idleTimeou
                   | "features.memory"
                   | "features.skill"
                   | "features.mcp"
+                  | "features.agentTeams"
                   | "skills.enabled"
                   | "skills.includeInstructions"
               ? boolean
@@ -225,6 +227,7 @@ export interface RuntimeConfig {
     memory: boolean;
     skill: boolean;
     mcp: boolean;
+    agentTeams: boolean;
   };
   memory: {
     use: boolean;
@@ -312,6 +315,7 @@ export const DefaultRuntimeConfig: RuntimeConfig = {
     memory: true,
     skill: true,
     mcp: true,
+    agentTeams: false,
   },
   memory: {
     use: true,

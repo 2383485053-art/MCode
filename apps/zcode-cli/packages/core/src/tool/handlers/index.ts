@@ -50,7 +50,13 @@ import {
   exitPlanModeToolEntry,
 } from "./plan-mode.js";
 import { askUserQuestionToolEntry } from "./ask-user-question.js";
-import { sendMessageToolEntry } from "./send-message.js";
+import { sendMessageToolEntry, createSendMessageToolEntry } from "./send-message.js";
+import {
+  taskCreateToolEntry,
+  taskGetToolEntry,
+  taskListToolEntry,
+  taskUpdateToolEntry,
+} from "./task-board-tools.js";
 import { respondToCoordinatorToolEntry } from "./respond-to-coordinator.js";
 import { createSubmitResultToolEntry, submitResultToolEntry } from "./submit-result.js";
 import { escalateToolEntry } from "./escalate.js";
@@ -95,6 +101,10 @@ export const builtInTools: ToolEntry[] = [
   exitPlanModeToolEntry,
   askUserQuestionToolEntry,
   sendMessageToolEntry,
+  taskCreateToolEntry,
+  taskGetToolEntry,
+  taskListToolEntry,
+  taskUpdateToolEntry,
   respondToCoordinatorToolEntry,
   submitResultToolEntry,
   // actor 的升级通道。与 submit_result 完全同构：
@@ -161,6 +171,10 @@ interface RegisterBuiltInToolsOptions {
   includeSkill?: boolean;
   includeAgent?: boolean;
   includeSendMessage?: boolean;
+  /** Agent Teams 任务板四件套；由 teamManager 在场驱动。 */
+  includeTaskBoard?: boolean;
+  /** Agent Teams 总开关（teamManager 在场）：SendMessage 描述切换为 team 按名寻址版。 */
+  agentTeamsEnabled?: boolean;
   includeRespondToCoordinator?: boolean;
   includeSubmitResult?: boolean;
   /**
@@ -221,6 +235,16 @@ export function registerBuiltInTools(
       continue;
     }
     if (entry.metadata.name === "SendMessage" && options.includeSendMessage !== true) {
+      continue;
+    }
+    // 任务板四件套只在 Agent Teams（teamManager 注入）时注册。
+    if (
+      (entry.metadata.name === "TaskCreate" ||
+        entry.metadata.name === "TaskGet" ||
+        entry.metadata.name === "TaskList" ||
+        entry.metadata.name === "TaskUpdate") &&
+      options.includeTaskBoard !== true
+    ) {
       continue;
     }
     if (
@@ -290,6 +314,12 @@ function resolveBuiltInToolEntryForBranch(
       profiles: options.agentProfiles,
       dynamicWorkflowEnabled: options.includeDynamicWorkflow !== false,
     });
+  }
+  // Agent Teams 同款门也管 SendMessage 的描述：开启时寻址语义切换为 team 版
+  //（按名 / to:"team-lead"）；关闭时端口仍是 agentId 寻址，描述必须保持原版，
+  // 否则模型按描述发消息必然失败（修复：此前描述被无条件替换成 team 版）。
+  if (entry.metadata.name === "SendMessage") {
+    return createSendMessageToolEntry({ teamAddressing: options.agentTeamsEnabled === true });
   }
   if (entry.metadata.name === "Task") {
     return createTaskToolEntry({

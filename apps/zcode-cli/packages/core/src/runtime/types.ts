@@ -211,6 +211,14 @@ export interface AgentRuntimeConfig {
    * false 会关闭十个工作流工具，不改变其他工具的注册策略。
    */
   dynamicWorkflowEnabled?: boolean;
+  /**
+   * Agent Teams v1 开关（features.agentTeams 的折叠）：lead 会话（非
+   * subagent_child）开启时装饰 subagent 端口（具名成员/按名寻址/自驱循环）
+   * 并注册任务板四件套。缺席即关闭，行为与现状完全一致。
+   */
+  agentTeamsEnabled?: boolean;
+  /** Agent Teams v1：本会话若是 teammate，它的最终登记名（subagent child 侧装配用）。 */
+  teamAgentName?: string;
 
   // Context Builder config
   systemPrompt?: string;

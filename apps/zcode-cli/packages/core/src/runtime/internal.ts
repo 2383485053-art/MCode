@@ -35,6 +35,7 @@ import type {
   ContextBuilder,
   ContextBuildResult,
 } from "./deps.js";
+import type { TeamManager } from "../agent/teams/team-manager.js";
 import type {
   ActiveTurnSteeringState,
   ActiveTurnStartReservation,
@@ -101,6 +102,8 @@ export interface AgentRuntimeInternal
   mcpInitialized: boolean;
   mcpToolsRegistered: boolean;
   subagentPort?: SubagentPort;
+  /** Agent Teams v1：lead 进程的编排者；features.agentTeams 开启且非 subagent_child 时装配。 */
+  teamManager?: TeamManager;
   dynamicWorkflowRunPort?: DynamicWorkflowRunPort;
   modelCatalogPort?: ModelCatalogPort;
   runtimeTaskRegistry: RuntimeTaskRegistry;

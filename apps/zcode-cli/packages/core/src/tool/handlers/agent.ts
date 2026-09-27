@@ -145,6 +145,9 @@ function formatAgentOutputForModel(output: unknown): string {
     ];
     return [
       ...childContent,
+      ...(data.agentName !== undefined
+        ? [`teammate name: ${data.agentName} (address it by name with SendMessage)`]
+        : []),
       `agentId: ${data.agentId} (use SendMessage with to: '${data.agentId}' to continue this agent)`,
       `<usage>${usageLines.join("\n")}</usage>`,
     ].join("\n");
@@ -152,7 +155,12 @@ function formatAgentOutputForModel(output: unknown): string {
 
   const launchLines = [
     "Async agent launched successfully.",
-    `agentId: ${data.agentId} (internal ID - do not mention to user. Use SendMessage with to: '${data.agentId}' to continue this agent.)`,
+    ...(data.agentName !== undefined
+      ? [`teammate name: ${data.agentName} (address it by name with SendMessage)`]
+      : []),
+    // CC 0205：spawn 结果是内部元数据——任何部分（含 agentId）都不得引用进
+    // 用户可见回复，防模型把内部 ID 泄露给用户。
+    `agentId: ${data.agentId} (internal metadata - never quote or paste any part of this result, including this ID, into a user-facing reply. Use SendMessage with to: '${data.agentId}' to continue this agent.)`,
     "The agent is working in the background. You will be notified automatically when it completes.",
   ];
 
@@ -197,6 +205,7 @@ const agentHandler: ToolHandler = async (input, context) => {
     agentType,
     description: parsed.description,
     prompt: parsed.prompt,
+    ...(parsed.agent_name !== undefined ? { agentName: parsed.agent_name } : {}),
     callerCanReadOutputFile: canReadBackgroundOutputFile(context.providerVisibleToolNames),
     workingDirectory: context.workingDirectory,
     workspaceRoot: context.workspaceRoot,

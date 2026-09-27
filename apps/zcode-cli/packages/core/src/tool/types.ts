@@ -159,6 +159,8 @@ export interface ToolExecutionContext {
   subagentModelOverride?: SubagentRunOptions["modelOverride"];
   skillPort?: SkillPort;
   subagentPort?: SubagentPort;
+  /** Agent Teams v1：任务板四件套与按名寻址的编排入口；lead 会话注入。 */
+  teamManager?: import("../agent/teams/team-manager.js").TeamManager;
   coordinatorResponsePort?: CoordinatorResponsePort;
   /** 工作流 actor 提交终态结果并等待引擎裁决的端口；仅在 workflow actor 会话注入。 */
   workflowSubmitPort?: WorkflowSubmitPort;

@@ -314,7 +314,12 @@ export const runPrompt = async (
     traceId = result.traceId ?? traceId;
     // 在飞的 workflow run 不能被进程退出孤儿化。窄触发（观察到过 dwf 活动）+ 宽排水
     // （runtime 的两个 busy 事实）——论证见 waitForHeadlessWorkflowSettle 的注释。
-    if (observer.hasWorkflowActivity() && runtimeFacts) {
+    // Agent Teams 同理：lead 的 turn 结束时 teammate 还在自驱（或处于终态处理窗口），
+    // 不等它们，进程退出会 teardown 掉整个团队（hasActiveTeammates 并进了排水谓词）。
+    if (
+      (observer.hasWorkflowActivity() || app.runtime.hasActiveTeammates()) &&
+      runtimeFacts
+    ) {
       await waitForHeadlessWorkflowSettle({
         runtime: runtimeFacts,
         signal: abortController.signal,

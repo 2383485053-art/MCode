@@ -15,6 +15,8 @@ export interface SubagentRunRequest {
   agentType: string;
   description: string;
   prompt: string;
+  /** Agent Teams：teammate 名字（lead 侧解析后的最终名），透传给 child runtime。 */
+  agentName?: string;
   callerCanReadOutputFile?: boolean;
   workingDirectory: string;
   workspaceRoot: string;

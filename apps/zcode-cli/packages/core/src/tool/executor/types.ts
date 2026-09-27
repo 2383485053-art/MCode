@@ -99,6 +99,8 @@ export interface ToolExecutorOptions {
   nativeSearchEnhancementsEnabled?: boolean;
   skillPort?: SkillPort;
   subagentPort?: SubagentPort;
+  /** Agent Teams v1：在场时注册任务板四件套并接管按名寻址。 */
+  teamManager?: import("../../agent/teams/team-manager.js").TeamManager;
   coordinatorResponsePort?: CoordinatorResponsePort;
   workflowSubmitPort?: WorkflowSubmitPort;
   /** actor 的升级端口；存在即为该会话注册 escalate。 */
@@ -200,6 +202,8 @@ export interface ToolExecutorDeps {
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
+  /** Agent Teams v1：任务板四件套与按名寻址的编排入口。 */
+  teamManager?: import("../../agent/teams/team-manager.js").TeamManager;
   model?: Model;
   embeddedSearchBackend?: EmbeddedSearchBackend;
   nativeSearchEnhancementsEnabled?: boolean;

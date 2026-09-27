@@ -39,6 +39,11 @@ export type {
  * runtime task registry，不能从协议投影或 UI 状态猜测。
  */
 export function hasRunningBackgroundTasks(this: AgentRuntimeInternal): boolean {
+  // Agent Teams v1：自驱中的 teammate 与后台 Bash/Agent 同权重。lead turn 结束时
+  // 成员可能正处在「终态处理 → 即将 resume」的窗口（registry 短暂 terminal），
+  // 或成员 idle 但任务板仍有未完任务等待自驱——不等它们，headless settle 会在
+  // 团队干活中途退出并 teardown 掉所有成员。
+  if (this.teamManager?.hasActiveTeammates() === true) return true;
   return hasRunningBackgroundRuntimeTask(this.runtimeTaskRegistry);
 }
 

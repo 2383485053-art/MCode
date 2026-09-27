@@ -18,6 +18,7 @@ const MAX_TASK_STOP_MODEL_BYTES = 100_000;
 const TASK_STOP_PROVIDER_DESCRIPTION = [
   "",
   "- Stops a running background task by its ID",
+  "- To stop an agent-team teammate, pass its name or agent ID as task_id",
   "- Takes a task_id parameter identifying the task to stop",
   "- Returns a success or failure status",
   "- Use this tool when you need to terminate a long-running task",
@@ -31,6 +32,19 @@ const taskStopHandler: ToolHandler = async (input, context) => {
     throw taskStopError("Missing required parameter: task_id", 1, {
       toolCallId: context.toolCallId,
     });
+  }
+
+  // CC 0175：TaskStop 也是停 teammate 的入口——task_id 是成员名或 agentId
+  // 时路由到 TeamManager（停成员+任务回池+通知 lead）；未命中回落到
+  // background task 路径，不影响非 teams 会话。
+  const stoppedTeammate = (await context.teamManager?.stopTeammate(taskId)) ?? undefined;
+  if (stoppedTeammate) {
+    const output: TaskStopOutput = {
+      message: `Stopped teammate '${stoppedTeammate.name}'; their tasks were released back to the board.`,
+      task_id: stoppedTeammate.agentId,
+      task_type: "agent_teammate",
+    };
+    return output;
   }
 
   if (!context.backgroundTaskControlPort) {

@@ -61,6 +61,9 @@ export * from "./config/index.js";
 // Hooks
 export * from "./hooks/index.js";
 
+// Agent Teams
+export * from "./agent-teams/index.js";
+
 // Skills
 export * from "./skills/index.js";
 

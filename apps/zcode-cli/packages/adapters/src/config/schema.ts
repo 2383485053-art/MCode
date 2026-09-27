@@ -37,6 +37,7 @@ const featuresSchema = z.object({
   memory: z.boolean().optional(),
   skill: z.boolean().optional(),
   mcp: z.boolean().optional(),
+  agentTeams: z.boolean().optional(),
 });
 
 const memorySchema = z.object({
@@ -277,6 +278,18 @@ const hooksSchema = z
         PostToolUse: z.array(hookMatcherSchema).optional(),
         PostToolUseFailure: z.array(hookMatcherSchema).optional(),
         Stop: z.array(hookMatcherSchema).optional(),
+        // Agent teams 三事件（contracts HookEventName 全集的子集）。本白名单
+        // 此前照抄 workspace hook 的 7 事件，teams 事件在类型层合法
+        // （HooksRuntimeConfig.events 对全部 HookEventName 开放）却在装载层
+        // 被 strict 拒绝——且 parse 失败会让整个 config.json 静默作废
+        // （features.agentTeams 一并丢失，teams 工具面消失）。修复依据：
+        // TeamManager 的 TaskCreated/TaskCompleted/TeammateIdle hooks 是
+        // 用户级配置入口，必须能从 config.json 装载。shared 的 workspace
+        // 白名单维持 7 事件不动（项目级 hooks 走 trust 审查体系，是否开放
+        // teams 事件是独立决策）。
+        TaskCreated: z.array(hookMatcherSchema).optional(),
+        TaskCompleted: z.array(hookMatcherSchema).optional(),
+        TeammateIdle: z.array(hookMatcherSchema).optional(),
       })
       .strict()
       .optional(),

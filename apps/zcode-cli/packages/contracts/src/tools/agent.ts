@@ -22,6 +22,13 @@ export const AgentInputSchema = z.object({
     .string()
     .optional()
     .describe("The type of specialized agent to use for this task"),
+  agent_name: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/)
+    .optional()
+    .describe(
+      "Agent Teams: name this agent as a teammate (address it by name with SendMessage; requires the agent teams feature)",
+    ),
   // subagent 模型由 Settings / Markdown profile 统一决定；若把调用级
   // model 暴露给父模型，历史 tool call 会持续生成旧 override 并覆盖当前配置。
   run_in_background: z
@@ -44,6 +51,8 @@ export interface AgentTextContentBlock {
 export interface AgentCompletedOutput {
   status: "completed";
   agentId: string;
+  /** Agent Teams：具名成员的最终登记名（重名时可能带 -2 后缀）。 */
+  agentName?: string;
   agentType: AgentType;
   description: string;
   prompt: string;
@@ -58,6 +67,8 @@ export interface AgentBackgroundedOutput {
   status: "async_launched";
   isAsync: true;
   agentId: string;
+  /** Agent Teams：具名成员的最终登记名（重名时可能带 -2 后缀）。 */
+  agentName?: string;
   agentType: AgentType;
   description: string;
   prompt: string;
@@ -80,6 +91,7 @@ export const AgentCompletedOutputSchema = z
   .object({
     status: z.literal("completed"),
     agentId: z.string(),
+    agentName: z.string().optional(),
     agentType: z.string(),
     description: z.string(),
     prompt: z.string(),
@@ -96,6 +108,7 @@ export const AgentBackgroundedOutputSchema = z
     status: z.literal("async_launched"),
     isAsync: z.literal(true),
     agentId: z.string(),
+    agentName: z.string().optional(),
     agentType: z.string(),
     description: z.string(),
     prompt: z.string(),
