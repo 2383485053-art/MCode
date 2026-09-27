@@ -36,7 +36,9 @@ export async function withDirectoryLock<T>(lockPath: string, fn: () => Promise<T
         continue;
       }
       if (Date.now() > deadline) {
-        await rm(lockPath, { recursive: true, force: true }).catch(() => undefined);
+        // 超时只抛错，绝不删锁：STALE_MS(5s) 是唯一的窃取线（以 mtime 为准），
+        // 获取超时只说明等不到——持锁方可能仍活着（锁内文件 IO 慢≠崩溃）。
+        // 删掉活锁会放第二个写者进临界区，读-合并-写互相覆盖丢帧。
         throw new Error(`Timed out acquiring file lock at ${lockPath}`);
       }
       await sleep(POLL_MS);

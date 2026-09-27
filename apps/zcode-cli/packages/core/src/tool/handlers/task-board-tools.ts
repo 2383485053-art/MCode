@@ -140,6 +140,18 @@ const taskUpdateHandler: ToolHandler = async (input, context) => {
       message: `TaskCompleted hook blocked marking task #${parsed.taskId} as completed; it stays ${result.task?.status ?? "in_progress"}.`,
     };
   }
+  if (result.result === "delete_forbidden") {
+    return {
+      success: false,
+      message: `Task #${parsed.taskId} is owned by ${result.task!.owner}; only the owner or team-lead can delete it.`,
+    };
+  }
+  if (result.result === "dependency_cycle") {
+    return {
+      success: false,
+      message: `Cannot add blockedBy to task #${parsed.taskId}: it would create a dependency cycle (${result.cycle!.join(" -> ")}). Check the dependency direction and fix it.`,
+    };
+  }
   if (status === "deleted") {
     return { success: true, message: `Deleted task #${parsed.taskId}.` };
   }

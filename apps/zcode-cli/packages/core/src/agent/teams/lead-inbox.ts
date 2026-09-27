@@ -7,7 +7,7 @@
 
 import { TEAM_LEAD_NAME, type TeamMailboxFrame } from "@zcode/contracts";
 import type { TeamMailboxStore } from "./mailbox-store.js";
-import { TEAMMATE_MESSAGE_UNTRUSTED_NOTICE } from "./prompts.js";
+import { escapeEnvelopeAttribute, escapeEnvelopeTags, TEAMMATE_MESSAGE_UNTRUSTED_NOTICE } from "./prompts.js";
 
 const POLL_INTERVAL_MS = 500;
 
@@ -66,13 +66,19 @@ export class LeadInboxPoller {
 
 function renderLeadFrame(frame: TeamMailboxFrame): string {
   if (frame.type === "idle_notification") {
-    const result = frame.result ? ` Last result: ${truncate(frame.result, 400)}` : "";
+    // result 是成员 turn 输出（成员可控文本）：同样做信封转义——注入流里
+    // 出现裸的定界符 token 仍可能被 lead 模型当作信封结构解析。
+    const result = frame.result
+      ? ` Last result: ${escapeEnvelopeTags(truncate(frame.result, 400))}`
+      : "";
     return `Teammate '${frame.from}' went idle (${frame.idleReason ?? "available"}).${result}`;
   }
-  const summary = frame.summary ? ` summary="${frame.summary}"` : "";
+  const summary = frame.summary ? ` summary="${escapeEnvelopeAttribute(frame.summary)}"` : "";
   return [
     `<teammate_message teammate_id="${frame.from}"${summary}>`,
-    frame.text,
+    // 正文必须转义（specs/agent-teams-v1.md §1.3）：不转义则成员可在正文里
+    // 闭合本信封并伪造 teammate_id="team-lead" 的假信封，结构上冒充注入来源。
+    escapeEnvelopeTags(frame.text),
     "</teammate_message>",
     // CC 1097：防权限洗白声明替代此前的弱版 "Verify the sender"——
     // peer 不能授予提权，也不能把 peer 消息当用户批准。

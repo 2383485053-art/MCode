@@ -33,6 +33,7 @@ import { LeadInboxPoller } from "./lead-inbox.js";
 import {
   buildSelfDrivePrompt,
   buildTeammateIdentityPrompt,
+  escapeEnvelopeTags,
   TEAMMATE_COMMUNICATION_PROMPT,
   TEAMMATE_MESSAGE_UNTRUSTED_NOTICE,
   TEAMMATE_WORKFLOW_PROMPT,
@@ -40,6 +41,7 @@ import {
 import { TeamMailboxStore } from "./mailbox-store.js";
 import { TeamTaskBoardStore, type CreateTaskInput, type UpdateTaskInput } from "./task-board-store.js";
 import { TeamStore } from "./team-store.js";
+import { emitTasksChanged, onTasksChanged } from "./teams-events.js";
 
 /** 自驱认领重试上限（防意外活锁；正常路径每轮 findNext 都会排除致拒任务，远达不到上限）。 */
 const SELF_DRIVE_MAX_CLAIM_ATTEMPTS = 8;
@@ -93,6 +95,11 @@ export class TeamManager {
   private readonly idleBlockCounts = new Map<string, number>();
   private pollerStarted = false;
   private disposed = false;
+  /**
+   * tasks_changed 订阅退订句柄（仅 lead 角色）：member 侧实例建任务时
+   * 经模块级事件广播到 lead 侧唤醒 idle 成员；dispose 退订防泄漏。
+   */
+  private readonly unsubscribeTasksChanged: (() => void) | undefined;
 
   constructor(private readonly options: TeamManagerOptions) {
     const teamId = options.leadSessionId;
@@ -104,6 +111,9 @@ export class TeamManager {
       injectIntoLead: (text) => options.injectIntoLead(text),
       logger: options.logger,
     });
+    if (options.role === "lead") {
+      this.unsubscribeTasksChanged = onTasksChanged(() => this.wakeIdleMembers());
+    }
   }
 
   /** poller 延迟到首个成员注册后启动：无 team 的会话不产生轮询开销。 */
@@ -137,7 +147,7 @@ export class TeamManager {
     const requestedName = request.agentName;
     if (!TEAM_AGENT_NAME_PATTERN.test(requestedName) || isReservedTeamAgentName(requestedName)) {
       throw new Error(
-        `Invalid teammate name '${requestedName}': use ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ and avoid 'team-lead'/'main'/'user'/'system'/agent_ ids.`,
+        `Invalid teammate name '${requestedName}': use ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ and avoid 'team-lead'/'main'/'user'/'system'/agent_ ids and Windows device names (con/nul/com1...).`,
       );
     }
     await this.store.ensureTeam();
@@ -267,11 +277,13 @@ export class TeamManager {
     if (messageFrames.length > 0) {
       // CC 1097：成员收消息同样带防洗白声明——兄弟成员是半信任主体，
       // 注入文本可能携带嵌入指令，与 lead 侧 renderLeadFrame 同构。
+      // 正文做信封定界符转义（specs/agent-teams-v1.md §1.3）：不转义则
+      // 发送方可在正文里闭合信封再伪造 teammate_id 假信封冒充他人。
       const prompt = messageFrames
         .map((frame) =>
           [
             `<teammate_message teammate_id="${frame.from}">`,
-            frame.text,
+            escapeEnvelopeTags(frame.text),
             "</teammate_message>",
             TEAMMATE_MESSAGE_UNTRUSTED_NOTICE,
           ].join("\n"),
@@ -449,6 +461,24 @@ export class TeamManager {
   }
 
   /**
+   * 任务板有新可做工作（新建/完成解锁/释放回池）时唤醒 idle 成员：对
+   * watched 中已 terminal 的成员重启 watch 循环（循环体的终态处理会走
+   * 认领分支）。缺这一步，全员 idle 时新建的任务无人认领，settle 放行
+   * 会把仍有 pending 任务的板 teardown 掉——任务被静默扔掉
+   * （specs/agent-teams-v1.md §1.5.e）。runWatchLoop 的换代机制保证
+   * 重复唤醒不会产生双循环；running 成员跳过（其 watch 循环在，终态时
+   * 自然认领）。
+   */
+  private wakeIdleMembers(): void {
+    if (this.disposed || this.options.role === "member") return;
+    for (const member of this.watched.values()) {
+      const task = this.options.registry.get(member.agentId);
+      if (!task || !isTerminalRuntimeTask(task)) continue;
+      void this.runWatchLoop(member.agentId).catch(() => undefined);
+    }
+  }
+
+  /**
    * member 名解析：优先 config 透传（spawn 路径），缺失时用 roster 文件反查
    * （resume 路径：sendMessage 构造的 resumeRequest 不携带 agentName，
    * 文件里的 name→agentId 是唯一事实源）。
@@ -503,6 +533,9 @@ export class TeamManager {
         `TaskCreated hook blocked creation of task #${task.id}; the task was rolled back.`,
       );
     }
+    // 广播任务变更：唤醒 idle 成员认领（specs/agent-teams-v1.md §1.5.e）。
+    // member 侧实例同样走到这里——emit 是模块级的，lead 侧监听收得到。
+    emitTasksChanged("created");
     return task;
   }
 
@@ -517,9 +550,13 @@ export class TeamManager {
       | "blocked_by_hook"
       | "already_claimed"
       | "already_resolved"
-      | "blocked";
+      | "blocked"
+      | "delete_forbidden"
+      | "dependency_cycle";
     /** deleted 路径不返回 task（文件已删，无真实快照可给）。 */
     task?: TeamTask;
+    /** dependency_cycle 的环路径（起点在末尾重复出现，供展示）。 */
+    cycle?: string[];
   }> {
     const current = await this.board.getTask(id);
     if (!current) return { result: "not_found" };
@@ -536,7 +573,12 @@ export class TeamManager {
         return { result: "blocked_by_hook", task: current };
       }
     }
-    return this.board.updateTask(id, patch);
+    const result = await this.board.updateTask(id, patch, actor);
+    // 完成可能解锁下游任务（blockedBy 依赖此任务的）：广播唤醒 idle 成员。
+    if (result.result === "updated" && patch.status === "completed") {
+      emitTasksChanged("completed");
+    }
+    return result;
   }
 
   getTask(id: string): Promise<TeamTask | undefined> {
@@ -639,7 +681,11 @@ export class TeamManager {
     this.watched.delete(member.agentId);
     this.watchGeneration.set(member.agentId, (this.watchGeneration.get(member.agentId) ?? 0) + 1);
     await this.options.subagentPort.stopTask?.(member.agentId).catch(() => undefined);
-    await this.board.releaseTasksOwnedBy(member.name);
+    const released = await this.board.releaseTasksOwnedBy(member.name);
+    if (released.length > 0) {
+      // 被停成员的任务回池了：广播唤醒其余 idle 成员接手。
+      emitTasksChanged("released");
+    }
     await this.mailbox.sendIdleNotification(member.name, {
       idleReason: "interrupted",
       text: `Teammate '${member.name}' was stopped via TaskStop.`,
@@ -659,6 +705,7 @@ export class TeamManager {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.unsubscribeTasksChanged?.();
     this.poller.dispose();
     if (this.options.role === "member") return; // member 无 teardown（team 归 lead 所有）
     void this.teardown().catch((error) => {

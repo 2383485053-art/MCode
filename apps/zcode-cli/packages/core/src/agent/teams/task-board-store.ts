@@ -10,6 +10,7 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  TEAM_LEAD_NAME,
   TeamTaskSchema,
   type TeamTask,
   type TeamTaskClaimResult,
@@ -109,21 +110,50 @@ export class TeamTaskBoardStore {
    * 写路径，两个成员并发抢同一任务会双写 owner（specs/agent-teams-v1.md §1.4）。
    * agent_busy 不查：lead 预分配与「做完一个再接一个」是 prompt 软约束调度，
    * 不是写入正确性问题。
+   *
+   * 删除守卫：actor 为成员名时，只能删自己的任务（owner=actor）或无主任务；
+   * lead 可删任何任务。actor 省略 = 系统行为（TaskCreated 回滚），放行——
+   * 回滚针对的是刚建的无主任务，本就到不了拒绝分支。
+   *
+   * 依赖环检测：addBlockedBy 生效前锁内 DFS，新增等待边使任务沿 blockedBy
+   * 可达自身（含自环）即拒绝并报出环路径。addBlocks 不查环：blocks 字段
+   * 不参与 blockedBySatisfied 判定（阻塞只由被阻塞方自己的 blockedBy 决定），
+   * 纯加 blocks 不构成死锁路径。
    */
-  async updateTask(id: string, patch: UpdateTaskInput): Promise<
+  async updateTask(
+    id: string,
+    patch: UpdateTaskInput,
+    actor?: string,
+  ): Promise<
     | { result: "updated"; task?: TeamTask }
     | { result: "not_found" }
-    | { result: "already_claimed" | "already_resolved" | "blocked"; task: TeamTask }
+    | { result: "already_claimed" | "already_resolved" | "blocked" | "delete_forbidden"; task: TeamTask }
+    | { result: "dependency_cycle"; task: TeamTask; cycle: string[] }
   > {
     return withDirectoryLock(this.lockPath(), async () => {
       const task = await this.readTask(id);
       if (!task) return { result: "not_found" as const };
       if (patch.status === "deleted") {
+        if (
+          actor !== undefined &&
+          task.owner !== undefined &&
+          task.owner !== actor &&
+          actor !== TEAM_LEAD_NAME
+        ) {
+          return { result: "delete_forbidden" as const, task };
+        }
         await rm(this.taskPath(id), { force: true }).catch(() => undefined);
         // 任务文件已删：不返回任何 task 快照。此前这里伪造
         // { ...task, status: "completed" } —— deleted ≠ completed，是误导性的
         // 假状态；调用方（工具层 deleted 分支、TaskCreated 回滚）都不读该值。
         return { result: "updated" as const };
+      }
+      if (patch.addBlockedBy !== undefined && patch.addBlockedBy.length > 0) {
+        const tasks = await this.listTasksUnsafe();
+        const cycle = findDependencyCycle(id, patch.addBlockedBy, tasks);
+        if (cycle) {
+          return { result: "dependency_cycle" as const, task, cycle };
+        }
       }
       const claimant = patch.owner;
       const willStart = patch.status === "in_progress";
@@ -299,6 +329,38 @@ function blockedBySatisfied(task: TeamTask, allTasks: readonly TeamTask[]): bool
   );
   // blockedBy 中不存在的 id 不构成阻塞（与 CC「不在未完成集合即放行」一致）。
   return task.blockedBy.every((id) => !incomplete.has(id));
+}
+
+/**
+ * 新增等待边是否会构成依赖环：从本任务出发沿 blockedBy（旧边 + 本次新增边）
+ * DFS，能回到本任务即环（含自环 A blockedBy A），返回环路径（起点重复出现
+ * 在末尾便于展示）。环上任务的 blockedBy 永不满足——无人能认领、无任何
+ * 报错、任务永久躺着；模型写错依赖必须当场拒绝而不是让任务静默卡死。
+ * blockedBy 中不存在的 id 的边自然终止（blockedByMap 查不到返回空数组）。
+ */
+function findDependencyCycle(
+  taskId: string,
+  addBlockedBy: readonly string[],
+  allTasks: readonly TeamTask[],
+): string[] | undefined {
+  const blockedByMap = new Map(allTasks.map((task) => [task.id, task.blockedBy]));
+  const startEdges = dedupeIds([...(blockedByMap.get(taskId) ?? []), ...addBlockedBy]);
+  const visited = new Set<string>();
+  const visit = (id: string, path: string[]): string[] | undefined => {
+    if (id === taskId) return path;
+    if (visited.has(id)) return undefined;
+    visited.add(id);
+    for (const dep of blockedByMap.get(id) ?? []) {
+      const found = visit(dep, [...path, dep]);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  for (const dep of startEdges) {
+    const found = visit(dep, [taskId, dep]);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 function dedupeIds(ids: readonly string[]): string[] {
