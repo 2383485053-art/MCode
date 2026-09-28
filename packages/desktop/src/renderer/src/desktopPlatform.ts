@@ -81,6 +81,13 @@ export function createDesktopPlatform(options: {
     syncWindowUnreadCount: (count) => window.zcode.syncWindowUnreadCount(count),
     syncActiveTaskSession: (sessionId) => window.zcode.syncActiveTaskSession(sessionId),
     syncAppSettings: (patch) => window.zcode.syncAppSettings?.(patch),
+    // Agent Teams 开关单一存储在 CLI config.json；旧 preload 未暴露时保持 undefined，UI 降级。
+    readAgentTeamsEnabled: window.zcode.readAgentTeamsEnabled
+      ? () => window.zcode.readAgentTeamsEnabled!()
+      : undefined,
+    writeAgentTeamsEnabled: window.zcode.writeAgentTeamsEnabled
+      ? (enabled) => window.zcode.writeAgentTeamsEnabled!(enabled)
+      : undefined,
     setShortcutRecordingActive: (active) => window.zcode.setShortcutRecordingActive?.(active),
     onFocusTab: (handler) => window.zcode.onFocusTab(handler),
     onNewTab: (handler) => window.zcode.onNewTab(handler),

@@ -1277,17 +1277,15 @@ export function SubagentsSection({ onManageModels }: SubagentsSectionProps) {
   const tabs = useTabStore((state) => state.tabs);
   const workspaceTabs = useMemo(() => {
     const seen = new Set<string>();
-    return (
-      tabs
-        .filter(isWorkspaceTab)
-        .filter(isPluginScopeWorkspaceConnected)
-        .filter((tab) => {
-          const key = getPluginWorkspaceKey(tab);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-    );
+    return tabs
+      .filter(isWorkspaceTab)
+      .filter(isPluginScopeWorkspaceConnected)
+      .filter((tab) => {
+        const key = getPluginWorkspaceKey(tab);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   }, [tabs]);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [capability, setCapability] = useState<AgentsCapability | null>(null);
@@ -1325,9 +1323,8 @@ export function SubagentsSection({ onManageModels }: SubagentsSectionProps) {
   // user 作用域的插件清单只从本地工作区取回退路径，避免把远程路径发给本机服务。
   const pluginInventoryWorkspacePath =
     selectedWorkspace?.workspacePath ??
-    workspaceTabs.find(
-      (tab) => !tab.remoteTarget && !tab.remoteSessionId && !tab.workspaceIdentity,
-    )?.workspacePath;
+    workspaceTabs.find((tab) => !tab.remoteTarget && !tab.remoteSessionId && !tab.workspaceIdentity)
+      ?.workspacePath;
   const chatModelSelectGroups = useMemo(() => {
     if (!modelSelectionView) return [];
     return buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, modelSelectionView, {

@@ -347,6 +347,12 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 同步需要 main 进程即时感知的应用设置 */
   syncAppSettings: (patch: Partial<AppSettings>) =>
     ipcRenderer.send(PlatformChannels.SyncAppSettings, patch),
+  /** 读取 CLI 配置 features.agentTeams（Agent Teams GUI 开关的单一存储） */
+  readAgentTeamsEnabled: (): Promise<boolean> =>
+    ipcRenderer.invoke(PlatformChannels.ReadAgentTeamsEnabled),
+  /** 写入 CLI 配置 features.agentTeams */
+  writeAgentTeamsEnabled: (enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke(PlatformChannels.WriteAgentTeamsEnabled, enabled),
   /** 快捷键设置页录制态开关：main 暂时摘除可配置菜单 accelerator，防止录制按键触发原命令 */
   setShortcutRecordingActive: (active: boolean) =>
     ipcRenderer.send(PlatformChannels.SetShortcutRecordingActive, active),

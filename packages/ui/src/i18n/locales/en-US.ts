@@ -3856,6 +3856,11 @@ const enUS: Record<string, string> = {
   "settings.subagents.title": "Subagents",
   "settings.subagents.description":
     "Manage user-level subagent Markdown files consumed by ZCode Agent.",
+  "settings.agentTeams.title": "Agent Teams",
+  "settings.agentTeams.toggle.label": "Enable Agent Teams",
+  "settings.agentTeams.toggle.description":
+    "Allow the main session to spawn named teammates that collaborate on a shared task board. Applies to new sessions.",
+  "settings.agentTeams.desktopOnly": "The Agent Teams switch is only available on desktop",
   "settings.subagents.workspaceScopeUnsupported":
     "Workspace-level creation or editing is unsupported",
   "settings.subagents.searchPlaceholder": "Search subagents...",

@@ -729,6 +729,18 @@ export interface IPlatformService {
   /** 同步需要 main 进程即时感知的应用设置；Web fallback 可忽略 */
   syncAppSettings?(patch: Partial<AppSettings>): void;
 
+  /**
+   * 读取 CLI 运行时配置 `~/.zcode/cli/config.json` 的 `features.agentTeams`。
+   * Agent Teams GUI 开关的单一存储；仅桌面端实现，Web/旧容器不提供时 UI 降级提示。
+   */
+  readAgentTeamsEnabled?(): Promise<boolean>;
+
+  /**
+   * 写入 `features.agentTeams`（读-合并-原子写，不触碰 config.json 其他字段）。
+   * 对新建会话生效；与 `readAgentTeamsEnabled` 成对实现。
+   */
+  writeAgentTeamsEnabled?(enabled: boolean): Promise<void>;
+
   /** 快捷键设置页录制态开关；桌面端 main 据此暂时摘除可配置菜单 accelerator，Web 可忽略 */
   setShortcutRecordingActive?(active: boolean): void;
 

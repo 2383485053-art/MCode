@@ -3609,6 +3609,11 @@ const zhCN: Record<string, string> = {
   "settings.skills.diagnostics.code.skill_not_found": "技能未找到",
   "settings.subagents.title": "子智能体",
   "settings.subagents.description": "管理 ZCode Agent 运行时消费的用户级子智能体 Markdown 文件。",
+  "settings.agentTeams.title": "Agent Teams（智能体团队）",
+  "settings.agentTeams.toggle.label": "启用 Agent Teams（智能体团队）",
+  "settings.agentTeams.toggle.description":
+    "允许主会话派生具名团队成员并协作完成共享任务板上的任务。对新建会话生效。",
+  "settings.agentTeams.desktopOnly": "Agent Teams 开关仅在桌面版可用",
   "settings.subagents.workspaceScopeUnsupported": "暂不支持工作区级创建或编辑",
   "settings.subagents.searchPlaceholder": "搜索子智能体...",
   "settings.subagents.empty": "没有找到子智能体",

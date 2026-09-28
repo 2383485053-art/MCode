@@ -52,6 +52,7 @@ import {
   saveCliMcpToUserDirectory,
 } from "./mcpUserDirectory/index.js";
 import { createTempTextAttachment } from "./tempTextAttachment.js";
+import { registerAgentTeamsConfigIpcHandlers } from "./agentTeamsConfigIpc.js";
 import { registerDesktopSaveFileIpcHandler } from "./desktopSaveFile.js";
 import { registerDesktopPrintToPdfIpcHandler } from "./desktopPrintToPdf.js";
 import { registerCuaPipActiveSessionIpc } from "./desktopCuaPipIpc.js";
@@ -290,6 +291,8 @@ export function registerPlatformIpcHandlers(options: {
 
     options.syncAppSettings(result.data);
   });
+
+  registerAgentTeamsConfigIpcHandlers(options.logger);
 
   // 快捷键录制态：renderer 设置页进入/退出录制时通知。macOS 系统菜单会先于 renderer
   // 吃掉按键，录制 menu 通道命令必须先摘掉可配置 accelerator，否则按键直接触发原命令。

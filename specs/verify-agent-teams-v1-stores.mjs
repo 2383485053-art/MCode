@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 单文件按序承载全部 store 层验证断言（mailbox/board/roster/六项加固回归），拆分会破坏共享夹具的执行顺序 */
 // Agent Teams v1 文件层验证：mailbox / 任务板 / 花名册
 // 运行：node_modules/.bin/tsx specs/verify-agent-teams-v1-stores.mjs（仓库根）
 import { mkdir, rm } from "node:fs/promises";

@@ -18,6 +18,7 @@ import {
   WandSparkles,
   Keyboard,
   FileSearch,
+  Users,
 } from "lucide-react";
 import { isSettingsSectionEnabled, type SettingsSectionId } from "@/lib/settingsNavigation.js";
 import type { Theme } from "@/useTheme.js";
@@ -83,6 +84,14 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     id: "subagents",
     icon: Bot,
     titleId: "settings.subagents.title",
+    groupId: "agentCapabilities",
+  },
+  // Agent Teams 与「子智能体」是两个能力：前者是多成员共享任务板协作，后者是单实例 profile。
+  // 独立分区避免被误读为子智能体的子开关。
+  {
+    id: "agentTeams",
+    icon: Users,
+    titleId: "settings.agentTeams.title",
     groupId: "agentCapabilities",
   },
   {

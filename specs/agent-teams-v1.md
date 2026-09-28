@@ -89,6 +89,7 @@ lead 收消息：`TeamManager 500ms 轮询 → drain lead mailbox → enqueueRun
 - `core/src/agent/teams/`：`mailbox-store.ts`、`task-board-store.ts`、`team-store.ts`、`team-manager.ts`、`lead-inbox.ts`、`prompts.ts`（六件提示词）。
 - 工具：`task-board-tools.ts` 四件套；`Agent` 加 `agent_name?`；`SendMessage` 描述换 CC 版（名字优先寻址 + resume 语义），路由经 TeamManager。
 - 配置：`ConfigKey` + `RuntimeConfig.features.agentTeams` + `adapters featuresSchema`；三 hook 事件可经用户级 `config.json` 的 `hooks.events`（TaskCreated/TaskCompleted/TeammateIdle）配置——adapters 装载 schema 白名单需含这三键（修复前照抄 workspace 7 事件导致配置即全盘作废）。
+- GUI 设置开关（Desktop「设置 → Agent 能力 → Agent Teams」独立分区，与记忆/子智能体并列；`settingsNavigation` id `agentTeams`）：**单一存储**——开关直写 CLI 运行时配置 `features.agentTeams`（`~/.mcode/cli/config.json`，遵循 `ZCODE_HOME` 覆盖，与 rebrand 后 services 侧 home 解析一致；经 desktop platform IPC 通道：`IPlatformService.readAgentTeamsEnabled/writeAgentTeamsEnabled` → preload `ipcRenderer.invoke` → main 原子读写）。开 = `features.agentTeams: true`，关 = `false`，无回落语义；新会话启动时 CLI 读同一份配置生效（`bootstrap/app/runtime-config.ts` 的 `features.agentTeams` 原生路径）。选择单一存储的动机：① 同机旧版 ZCode 的设置 schema 不含 `agentTeamsEnabled`，其整体回写设置文件会剥掉该字段致开关复位（已实测），而旧版不触碰 CLI 的 config.json；② 单一真相消除「GUI 关回落 CLI 开」的理解成本。旧 Host/web 场景无 platform 通道时开关区降级为「仅桌面版支持」提示。AppSettings 不再含 `agentTeamsEnabled`，SessionStartupPreferences/preferences 协议不带该字段。
 - 装配：`features.agentTeams === true` 时在 subagent 端口在场处构造 TeamManager，注入 tool context 与 runtime（shutdown 挂 teardown）。
 
 ## 5. 提示词（六件，语义对齐 CC 范式）

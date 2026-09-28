@@ -3354,6 +3354,8 @@ async function createRecord(
       // Memory Settings 是现有 CLI features.memory/use 之外的总开关。只在关闭时
       // 写入 override，避免开启值反向覆盖用户已有的 CLI 禁用配置。
       ...(startupPreferences.memoryEnabled ? {} : { memory: { enabled: false } }),
+      // Agent Teams GUI 开关已改为单一存储：GUI 直写 CLI config 的 features.agentTeams，
+      // 会话创建走 runtime-config 的原生 features.agentTeams 读取路径，不再经此 override。
       // desktop-continuous session/create 由 UI 先解析 ~/.zcode/.agents 的 enabled MCP，
       // 但 protocol app-server 自己不会读取 UI/main 侧的 MCP store；之前 createRecord 没把
       // params.mcpServers 注入 runtimeConfig，导致日志里 runtimeHasMcpConfig=false，工具永远不启动。

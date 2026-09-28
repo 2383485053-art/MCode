@@ -209,6 +209,10 @@ export const PlatformChannels = {
   SyncActiveTaskSession: "zcode:sync-active-task-session",
   /** Renderer → Main：同步 main 进程需即时感知的应用设置 */
   SyncAppSettings: "zcode:sync-app-settings",
+  /** Renderer ⇄ Main：读取 CLI 配置 ~/.zcode/cli/config.json 的 features.agentTeams */
+  ReadAgentTeamsEnabled: "zcode:read-agent-teams-enabled",
+  /** Renderer → Main：写入 CLI 配置 features.agentTeams（单一存储，GUI 开关直写） */
+  WriteAgentTeamsEnabled: "zcode:write-agent-teams-enabled",
   /** Renderer → Main：快捷键设置页录制态开关；true = main 暂时摘除可配置菜单 accelerator */
   SetShortcutRecordingActive: "zcode:set-shortcut-recording-active",
   /** Main → Renderer：聚焦到指定 workspace 路径的 tab */
@@ -774,6 +778,14 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.SyncAppSettings]: {
     request: Partial<AppSettings>;
+    response: void;
+  };
+  [PlatformChannels.ReadAgentTeamsEnabled]: {
+    request: void;
+    response: boolean;
+  };
+  [PlatformChannels.WriteAgentTeamsEnabled]: {
+    request: boolean;
     response: void;
   };
   [PlatformChannels.GetResourceUsageSnapshot]: {
