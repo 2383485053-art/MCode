@@ -5,12 +5,14 @@
  */
 export const ZCODE_PREVIEW_IDENTITY_ENV = "ZCODE_PREVIEW_IDENTITY";
 
+// MCode fork：production 身份改为 MCode（独立 appId/productName/exe 名），与官方 ZCode 安装包并排共存。
+// preview 身份保留上游原样（测试后端构建继续用 ZCode Preview）。
 const PRODUCTION_IDENTITY = Object.freeze({
   flavor: "production",
-  appId: "dev.zcode.app",
-  productName: "ZCode",
-  linuxExecutableName: "zcode",
-  linuxPackageName: "zcode",
+  appId: "dev.mxc.mcode",
+  productName: "MCode",
+  linuxExecutableName: "mcode",
+  linuxPackageName: "mcode",
   cuaHelperInstallVariant: null,
 });
 

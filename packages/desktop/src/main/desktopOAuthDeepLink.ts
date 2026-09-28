@@ -402,32 +402,38 @@ export function registerDeepLinkProtocol(
   },
   options: { iconPath?: string } = {},
 ) {
-  const scheme = "zcode";
+  // MCode fork：mcode:// 承载自有 deep link（workspace/open、share/import）；
+  // zcode:// 仅为 OAuth 回调兼容保留（官网中转页透传的目标 scheme 由服务端契约决定）。
+  const schemes = ["mcode", "zcode"] as const;
 
   if (process.defaultApp && process.argv.length >= 2) {
     const entry = resolve(process.argv[1]!);
-    const ok = app.setAsDefaultProtocolClient(scheme, process.execPath, [entry]);
-    if (!ok) {
-      logger.warn("[deep-link] 注册协议失败（defaultApp）", {
-        scheme,
-        execPath: process.execPath,
-        entry: process.argv[1],
-      });
-    } else {
-      logger.info("[deep-link] 注册协议成功（defaultApp）", {
-        scheme,
-        execPath: process.execPath,
-        entry: process.argv[1],
-      });
+    for (const scheme of schemes) {
+      const ok = app.setAsDefaultProtocolClient(scheme, process.execPath, [entry]);
+      if (!ok) {
+        logger.warn("[deep-link] 注册协议失败（defaultApp）", {
+          scheme,
+          execPath: process.execPath,
+          entry: process.argv[1],
+        });
+      } else {
+        logger.info("[deep-link] 注册协议成功（defaultApp）", {
+          scheme,
+          execPath: process.execPath,
+          entry: process.argv[1],
+        });
+      }
     }
     return;
   }
 
-  const ok = app.setAsDefaultProtocolClient(scheme);
-  if (!ok) {
-    logger.warn("[deep-link] 注册协议失败", { scheme });
-  } else {
-    logger.info("[deep-link] 注册协议成功", { scheme });
+  for (const scheme of schemes) {
+    const ok = app.setAsDefaultProtocolClient(scheme);
+    if (!ok) {
+      logger.warn("[deep-link] 注册协议失败", { scheme });
+    } else {
+      logger.info("[deep-link] 注册协议成功", { scheme });
+    }
   }
 
   if (process.platform === "linux" && app.isPackaged) {
