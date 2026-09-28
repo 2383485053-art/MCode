@@ -8,6 +8,7 @@ const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
 const PRIORITY_STEP = 10;
 const ZCODE_DIR = ".zcode";
+const MCODE_HOME_DIR = ".mcode";
 const AGENTS_DIR = ".agents";
 
 export interface CustomCommandRootResolutionOptions {
@@ -43,13 +44,14 @@ export async function resolveDefaultCustomCommandRoots(
   }
 
   if (includeZcode) {
-    roots.push(...commandRootsForBase(home, "user", nextPriority));
+    // MCode fork：用户级命令目录走 ~/.mcode，项目级仍读工作区 .zcode（与官方版共用）。
+    roots.push(...commandRootsForBase(home, "user", nextPriority, MCODE_HOME_DIR));
   }
 
   const projectDirectories = await resolveProjectDirectories(resolvedWorkingDirectory);
   for (const directory of projectDirectories) {
     if (includeZcode) {
-      roots.push(...commandRootsForBase(directory, "project", nextPriority));
+      roots.push(...commandRootsForBase(directory, "project", nextPriority, ZCODE_DIR));
     }
   }
 
@@ -95,11 +97,12 @@ function commandRootsForBase(
   baseDirectory: string,
   scope: CustomCommandRoot["scope"],
   nextPriority: () => number,
+  zcodeDirName: string,
 ): CustomCommandRoot[] {
   // 合并而不是 fallback：兼容 `.agents` 命令和原生 `.zcode` 命令需要同时可见。
-  // 同一级别 `.zcode` 先扫描，命令同名时仍按“先到先赢”处理。
+  // 同一级别 `.zcode` 先扫描，命令同名时仍按“先到先得”处理。
   return [
-    root(join(baseDirectory, ZCODE_DIR, COMMANDS_DIR), scope, "zcode", nextPriority()),
+    root(join(baseDirectory, zcodeDirName, COMMANDS_DIR), scope, "zcode", nextPriority()),
     root(join(baseDirectory, AGENTS_DIR, COMMANDS_DIR), scope, "agents", nextPriority()),
   ];
 }

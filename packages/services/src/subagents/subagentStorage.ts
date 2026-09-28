@@ -50,7 +50,7 @@ async function readUserCliConfig(
 ): Promise<Record<string, unknown>> {
   try {
     const raw = await readFile(
-      join(resolveUserHomeDir(options), ".zcode", "cli", "config.json"),
+      join(resolveUserHomeDir(options), ".mcode", "cli", "config.json"),
       "utf8",
     );
     const parsed = JSON.parse(raw) as unknown;

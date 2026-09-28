@@ -450,7 +450,7 @@ export function createDefaultSubagentPort(
         : {}),
       memberAgentId,
       leadSessionId: parentSessionId,
-      storageDir: join(homedir(), ".zcode"),
+      storageDir: join(homedir(), ".mcode"),
       registry: this.runtimeTaskRegistry,
       subagentPort: basePort,
       injectIntoLead: () => undefined,
@@ -488,7 +488,7 @@ export function createDefaultSubagentPort(
   const teamManager = new TeamManager({
     role: "lead",
     leadSessionId: this.sessionId,
-    storageDir: join(homedir(), ".zcode"),
+    storageDir: join(homedir(), ".mcode"),
     registry: this.runtimeTaskRegistry,
     subagentPort: basePort,
     injectIntoLead: (text, traceContext) => {

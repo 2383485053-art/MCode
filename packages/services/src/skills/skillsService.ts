@@ -47,8 +47,8 @@ interface ParsedFrontmatter {
 }
 
 const SKILL_META_FILE_NAME = "_meta.json";
-const SKILL_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "v2");
-const SKILL_CLI_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "cli");
+const SKILL_SETTINGS_DIR = join(resolveUserHomeDir(), ".mcode", "v2");
+const SKILL_CLI_SETTINGS_DIR = join(resolveUserHomeDir(), ".mcode", "cli");
 const SKILL_CLI_CONFIG_FILE = join(SKILL_CLI_SETTINGS_DIR, "config.json");
 const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
@@ -81,7 +81,7 @@ function getWorkspaceAgentsSkillRoot(workspacePath: string): string {
 
 /** ZCode Agent 用户级技能目录。 */
 function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+  return join(resolveUserHomeDir(), ".mcode", "skills");
 }
 
 /** 兼容目录: 用户级 `~/.agents/skills`。 */
